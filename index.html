@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Leaders Feed</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; }</style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [tweets, setTweets] = useState([]);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                // აქ ვკითხულობთ პითონის მიერ შექმნილ ფაილს
+                fetch('./tweets.json')
+                    .then(res => res.json())
+                    .then(data => {
+                        setTweets(data);
+                        setLoading(false);
+                    })
+                    .catch(err => console.error("Error loading tweets:", err));
+            }, []);
+
+            return (
+                <div className="max-w-2xl mx-auto p-6">
+                    <header className="mb-8 border-b border-slate-800 pb-4 flex justify-between items-center">
+                        <h1 className="text-2xl font-bold text-white tracking-tight">AI Leaders Feed</h1>
+                        <span className="text-xs text-green-500 bg-green-900/30 px-2 py-1 rounded">Live Updates</span>
+                    </header>
+
+                    {loading ? (
+                        <div className="text-center text-slate-500 animate-pulse">Loading latest intel...</div>
+                    ) : (
+                        <div className="space-y-4">
+                            {tweets.map((tweet, index) => (
+                                <div key={index} className="bg-slate-900/50 border border-slate-800 p-5 rounded-xl hover:bg-slate-900 transition">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="font-bold text-white">{tweet.user} <span className="text-slate-500 font-normal text-sm">{tweet.handle}</span></div>
+                                        <div className="text-xs text-slate-500">{tweet.date}</div>
+                                    </div>
+                                    <p className="text-slate-300 leading-relaxed">{tweet.text}</p>
+                                </div>
+                            ))}
+                            <div className="text-xs text-center text-slate-600 pt-8">
+                                Updated automatically via GitHub Actions
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
+

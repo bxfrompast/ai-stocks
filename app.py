@@ -1,90 +1,132 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 
-# 1. გვერდის დიზაინის გასწორება
-st.set_page_config(page_title="AI Market Watch", layout="wide", page_icon="🤖")
+# გვერდის კონფიგურაცია
+st.set_page_config(page_title="AI Battle Arena", layout="wide", page_icon="⚔️")
 
-# სტილის დამატება (CSS)
-st.markdown("""
-<style>
-    .metric-card {background-color: #f0f2f6; border-radius: 10px; padding: 15px; margin: 10px 0;}
-    h1 {color: #0e1117;}
-</style>
-""", unsafe_allow_html=True)
-
-st.title("🧠 AI Market Watch: ინდუსტრიის პულსი")
+st.title("⚔️ AI Battle Arena: შეაჯიბრე გიგანტები")
+st.markdown("აირჩიე ორი კომპანია და გაარკვიე, ვინ არის დღეს ბაზრის მეფე.")
 st.markdown("---")
 
-# გვერდითა პანელი (Sidebar)
-st.sidebar.header("პარამეტრები")
-selected_period = st.sidebar.selectbox("ისტორიის პერიოდი", ['1mo', '3mo', '6mo', '1y', 'ytd'], index=1)
+# კომპანიების სია
+tickers = {
+    'NVIDIA': 'NVDA', 'Microsoft': 'MSFT', 'Google': 'GOOGL', 
+    'Meta': 'META', 'AMD': 'AMD', 'Tesla': 'TSLA', 
+    'Intel': 'INTC', 'IBM': 'IBM', 'Palantir': 'PLTR'
+}
 
-# ტაბების შექმნა
-tab1, tab2 = st.tabs(["📈 საჯარო გიგანტები", "🦄 კერძო Unicorn-ები"])
+# მებრძოლების არჩევა
+col_select1, col_mid, col_select2 = st.columns([1, 0.2, 1])
 
-# --- TAB 1: საჯარო კომპანიები ---
-with tab1:
-    tickers = ['NVDA', 'MSFT', 'GOOGL', 'META', 'AMD', 'PLTR', 'TSLA', 'IBM', 'AVGO']
+with col_select1:
+    fighter1_name = st.selectbox("აირჩიე მებრძოლი 1 (ლურჯი კუთხე)", list(tickers.keys()), index=0)
+    fighter1_ticker = tickers[fighter1_name]
+
+with col_select2:
+    # რომ არ აირჩიოს იგივე, მეორე სიას ვაფილტრავთ
+    remaining_tickers = [x for x in tickers.keys() if x != fighter1_name]
+    fighter2_name = st.selectbox("აირჩიე მებრძოლი 2 (წითელი კუთხე)", remaining_tickers, index=0)
+    fighter2_ticker = tickers[fighter2_name]
+
+# მონაცემების წამოღება
+def get_fighter_stats(ticker):
+    stock = yf.Ticker(ticker)
+    info = stock.fast_info
     
-    # მონაცემების წამოღება
-    data = []
-    for ticker in tickers:
-        try:
-            stock = yf.Ticker(ticker)
-            info = stock.fast_info
-            change = ((info.last_price - info.previous_close) / info.previous_close) * 100
-            data.append({
-                "Symbol": ticker,
-                "Price": info.last_price,
-                "Change": change,
-                "Volume": info.last_volume
-            })
-        except:
-            pass
+    price = info.last_price
+    prev_close = info.previous_close
+    change_pct = ((price - prev_close) / prev_close) * 100
+    market_cap = info.market_cap
+    volume = info.last_volume
+    
+    return {
+        "price": price,
+        "change": change_pct,
+        "cap": market_cap,
+        "volume": volume
+    }
+
+if st.button("🔥 ბრძოლის დაწყება!"):
+    with st.spinner("მონაცემების დამუშავება..."):
+        f1_stats = get_fighter_stats(fighter1_ticker)
+        f2_stats = get_fighter_stats(fighter2_ticker)
+        
+        # ქულების დათვლა
+        f1_score = 0
+        f2_score = 0
+        
+        # 1. რაუნდი: ზრდა
+        if f1_stats['change'] > f2_stats['change']:
+            f1_score += 1
+            round1 = f"{fighter1_name}"
+        else:
+            f2_score += 1
+            round1 = f"{fighter2_name}"
             
-    df = pd.DataFrame(data)
+        # 2. რაუნდი: კაპიტალიზაცია (Market Cap)
+        if f1_stats['cap'] > f2_stats['cap']:
+            f1_score += 1
+            round2 = f"{fighter1_name}"
+        else:
+            f2_score += 1
+            round2 = f"{fighter2_name}"
+            
+        # 3. რაუნდი: ინტერესი (Volume)
+        if f1_stats['volume'] > f2_stats['volume']:
+            f1_score += 1
+            round3 = f"{fighter1_name}"
+        else:
+            f2_score += 1
+            round3 = f"{fighter2_name}"
 
-    # ტოპ მეტრიკები
-    if not df.empty:
-        col1, col2, col3 = st.columns(3)
-        top_gainer = df.loc[df['Change'].idxmax()]
-        col1.metric("დღის ლიდერი", top_gainer['Symbol'], f"{top_gainer['Change']:.2f}%")
-        col2.metric("საშუალო ფასი", f"${df['Price'].mean():.2f}")
-        col3.metric("სულ კომპანია", len(df))
-
-        # გრაფიკის აწყობა (ყველა კომპანიის შედარება)
-        st.subheader("ფასების დინამიკა")
+        # --- ვიზუალიზაცია ---
         
-        # ისტორიული მონაცემების წამოღება გრაფიკისთვის
-        history_df = yf.download(tickers, period=selected_period)['Close']
-        fig = px.line(history_df, title=f"აქციების ფასი - ბოლო {selected_period}")
-        st.plotly_chart(fig, use_container_width=True)
-
-        # დეტალური ცხრილი
-        st.subheader("დეტალური მონაცემები")
+        # მთავარი შედეგი
+        st.markdown("### 🏆 ბრძოლის შედეგი")
         
-        def color_change(val):
-            color = '#2ecc71' if val > 0 else '#e74c3c'
-            return f'color: {color}; font-weight: bold'
+        res_col1, res_col2, res_col3 = st.columns([1,1,1])
+        
+        res_col1.markdown(f"<h2 style='text-align: center; color: blue;'>{fighter1_name}</h2>", unsafe_allow_html=True)
+        res_col1.markdown(f"<h1 style='text-align: center;'>{f1_score}</h1>", unsafe_allow_html=True)
+        
+        res_col2.markdown("<h1 style='text-align: center;'>VS</h1>", unsafe_allow_html=True)
+        
+        res_col3.markdown(f"<h2 style='text-align: center; color: red;'>{fighter2_name}</h2>", unsafe_allow_html=True)
+        res_col3.markdown(f"<h1 style='text-align: center;'>{f2_score}</h1>", unsafe_allow_html=True)
+        
+        st.divider()
+        
+        # დეტალური შედარება
+        c1, c2 = st.columns(2)
+        
+        # მებრძოლი 1
+        with c1:
+            st.info(f"🔵 {fighter1_name}")
+            st.metric("ზრდა (დღეს)", f"{f1_stats['change']:.2f}%")
+            st.metric("ღირებულება (Market Cap)", f"${f1_stats['cap']/1e9:.1f} B")
+            st.metric("ვაჭრობის მოცულობა", f"{f1_stats['volume']:,}")
 
-        st.dataframe(
-            df.style.format({"Price": "${:.2f}", "Change": "{:.2f}%"}).map(color_change, subset=['Change']),
-            use_container_width=True
-        )
+        # მებრძოლი 2
+        with c2:
+            st.error(f"🔴 {fighter2_name}")
+            st.metric("ზრდა (დღეს)", f"{f2_stats['change']:.2f}%")
+            st.metric("ღირებულება (Market Cap)", f"${f2_stats['cap']/1e9:.1f} B")
+            st.metric("ვაჭრობის მოცულობა", f"{f2_stats['volume']:,}")
 
-# --- TAB 2: კერძო კომპანიები ---
-with tab2:
-    st.info("ეს კომპანიები ჯერ არ არის საჯარო ბირჟაზე. ფასები ეფუძნება ბოლო საინვესტიციო რაუნდებს.")
-    
-    private_companies = [
-        {"Name": "OpenAI", "Valuation": "$157 Billion", "Owner/Backer": "Microsoft / Sam Altman", "Status": "🚀 ლიდერი"},
-        {"Name": "xAI", "Valuation": "$40 Billion", "Owner/Backer": "Elon Musk", "Status": "⚡ მზარდი"},
-        {"Name": "Anthropic", "Valuation": "$18 Billion", "Owner/Backer": "Amazon / Google", "Status": "🛡️ უსაფრთხო AI"},
-        {"Name": "Databricks", "Valuation": "$43 Billion", "Owner/Backer": "VCs", "Status": "📊 მონაცემები"},
-        {"Name": "Hugging Face", "Valuation": "$4.5 Billion", "Owner/Backer": "Community", "Status": "🤗 Open Source"}
-    ]
-    
-    p_df = pd.DataFrame(private_companies)
-    st.table(p_df)
+        # გამარჯვებულის გამოცხადება
+        st.divider()
+        if f1_score > f2_score:
+            st.success(f"🎉 გამარჯვებულია: **{fighter1_name}**!")
+            st.balloons()
+        else:
+            st.success(f"🎉 გამარჯვებულია: **{fighter2_name}**!")
+            st.balloons()
+            
+else:
+    st.info("აირჩიე ორი კომპანია და დააჭირე ღილაკს")
+
+# ფუტერი
+st.markdown("---")
+st.caption("მონაცემები ეყრდნობა Yahoo Finance-ის ლაივ ინდიკატორებს.")
